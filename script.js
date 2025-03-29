@@ -28,18 +28,15 @@ function addMessage(userstate, message, isSystem = false) {
 
     if (isSystem) {
         li.classList.add('system-message');
+        li.style.borderLeftColor = '#888'; // Distinct border for system messages
         metaSpan.textContent = `[System]: `;
+        metaSpan.style.color = '#555'; // System message meta color
     } else {
         metaSpan.textContent = `${displayName}: `;
-        // Use Twitch color if available
-        if (userstate.color) {
-            metaSpan.style.color = userstate.color;
-            li.style.borderLeftColor = userstate.color; // Add color accent to border
-        } else {
-             // Default color if none provided (useful for testing/edge cases)
-            metaSpan.style.color = '#6441a5';
-            li.style.borderLeftColor = '#6441a5';
-        }
+        // Use Twitch color if available, fallback to a default
+        const userColor = userstate.color || '#6441a5'; // Default purple if no color
+        metaSpan.style.color = userColor;
+        li.style.borderLeftColor = userColor; // Add color accent to border
     }
 
     const contentSpan = document.createElement('span');
@@ -68,12 +65,14 @@ function addMessage(userstate, message, isSystem = false) {
 
 // Function to add a system message (e.g., connection status)
 function addSystemMessage(message) {
+    console.info(`[System Message] ${message}`); // Log system messages to console too
     addMessage({}, message, true); // Use the isSystem flag
 }
 
 
 // Function to connect to a Twitch channel
 async function connectToChannel() {
+    console.log("Connect button clicked or Enter pressed."); // Check if function is called
     const channelName = channelInput.value.trim().toLowerCase();
     if (!channelName) {
         addSystemMessage('Please enter a channel name.');
@@ -81,25 +80,25 @@ async function connectToChannel() {
     }
     // Prevent multiple connection attempts if already connecting or connected
     if (client && (client.readyState() === 'CONNECTING' || client.readyState() === 'OPEN')) {
-        addSystemMessage(`Already connecting/connected to #${currentChannel || channelName}. Disconnect first.`);
+         addSystemMessage(`Already connecting/connected to #${currentChannel || channelName}. Disconnect first.`);
+        console.warn("Connection attempt blocked: Already connecting or connected.");
         return;
     }
 
 
     // Clear previous chat messages
     chatMessages.innerHTML = '';
-    addSystemMessage(`Connecting to #${channelName}...`);
+    addSystemMessage(`Attempting to connect to #${channelName}...`);
     setConnectingState(true); // Update UI to show connecting state
 
 
     client = new tmi.Client({
-        options: { debug: false }, // Set to true for more logs in console
+        options: { debug: true }, // *** ENABLED DEBUG LOGS ***
         connection: {
             secure: true,
             reconnect: true // tmi.js handles basic reconnect logic
         },
         // Identity is optional for read-only view
-        // identity: { username: 'your_username', password: 'oauth:your_oauth_token' }, // Not needed for read-only
         channels: [channelName]
     });
 
@@ -118,21 +117,21 @@ async function connectToChannel() {
 
     client.on('disconnected', (reason) => {
         // Only show message and reset if it was the channel we intended to connect to
+        // or if we never fully connected (currentChannel is null)
         if (currentChannel === channelName || !currentChannel) {
-             addSystemMessage(`Disconnected from #${channelName}. ${reason ? `Reason: ${reason}` : ''}`);
+             addSystemMessage(`Disconnected from #${currentChannel || channelName}. ${reason ? `Reason: ${reason}` : '(No reason provided)'}`);
              resetUI();
         } else {
-            // If disconnected from a different channel (shouldn't happen with this setup, but good practice)
-            addSystemMessage(`Unexpected disconnect event. Current: ${currentChannel}, Disconnected: ${channelName}`);
+            // If disconnected from a different channel (shouldn't happen with this setup)
+             addSystemMessage(`Unexpected disconnect event from a different channel. Current: ${currentChannel}, Disconnected channel event: ${channelName}`);
+             // Don't reset UI automatically in this odd case, might still be connected to currentChannel
         }
 
     });
 
     // Optional: More event listeners for richer feedback
-    // client.on('join', (channel, username, self) => { ... });
-    // client.on('part', (channel, username, self) => { ... });
     client.on('connecting', (address, port) => {
-        console.log(`TMI: Connecting to ${address}:${port}`);
+        console.log(`TMI: Connecting event to ${address}:${port}`);
          // Handled by initial addSystemMessage and setConnectingState
     });
      client.on('reconnect', () => {
@@ -142,11 +141,22 @@ async function connectToChannel() {
 
 
     try {
+         console.log("Calling client.connect()...");
          await client.connect();
+         console.log("client.connect() promise resolved (connection likely established, waiting for 'connected' event).");
          // Success is handled by the 'connected' event listener
     } catch (err) {
         console.error('TMI.js Connection Error:', err);
-        addSystemMessage(`Failed to connect to #${channelName}. Check channel name or network status.`);
+        // Check if the error object has more details
+        let errorMsg = `Failed to connect to #${channelName}.`;
+        if (err && err.message) {
+             errorMsg += ` Error: ${err.message}`;
+        } else if (typeof err === 'string') {
+            errorMsg += ` Error: ${err}`;
+        } else {
+            errorMsg += ' Check console for details.'
+        }
+        addSystemMessage(errorMsg);
         resetUI(); // Reset UI on connection failure
     }
 }
@@ -154,19 +164,26 @@ async function connectToChannel() {
 
 // Function to disconnect from the current channel
 async function disconnectFromChannel() {
+    console.log("Disconnect button clicked.");
     if (client && client.readyState() === 'OPEN') {
         addSystemMessage(`Disconnecting from #${currentChannel}...`);
+        setConnectingState(true); // Show a "disconnecting" state visually
+        disconnectBtn.textContent = 'Disconnecting...';
         try {
             await client.disconnect();
+            console.log("client.disconnect() promise resolved.");
             // Success is handled by the 'disconnected' event listener
             // Resetting UI is also handled there.
         } catch (err) {
              console.error("TMI.js Disconnection error:", err);
-             addSystemMessage(`Error during disconnection: ${err}`);
+             addSystemMessage(`Error during disconnection: ${err.message || err}`);
              resetUI(); // Force UI reset on disconnect error
         }
-    } else {
-         addSystemMessage("Not currently connected.");
+    } else if (client && client.readyState() === 'CONNECTING') {
+         addSystemMessage("Cannot disconnect while still connecting. Please wait.");
+    }
+    else {
+         addSystemMessage("Not currently connected or connecting.");
          resetUI(); // Ensure UI is in disconnected state if logic gets here unexpectedly
     }
 }
@@ -176,8 +193,9 @@ async function disconnectFromChannel() {
 function setConnectingState(isConnecting) {
      connectBtn.disabled = isConnecting;
      connectBtn.textContent = isConnecting ? 'Connecting...' : 'Connect';
-     disconnectBtn.disabled = isConnecting;
-     channelInput.disabled = isConnecting;
+     // Also disable disconnect button during the initial connection attempt
+     disconnectBtn.disabled = isConnecting || !currentChannel; // Disable if connecting OR not yet connected
+     channelInput.disabled = isConnecting || !!currentChannel; // Disable if connecting OR already connected
 }
 
 function setConnectedState(isConnected) {
@@ -187,6 +205,7 @@ function setConnectedState(isConnected) {
 
     disconnectBtn.style.display = isConnected ? 'inline-block' : 'none';
     disconnectBtn.disabled = !isConnected;
+    disconnectBtn.textContent = 'Disconnect'; // Reset button text
 
     channelInput.disabled = isConnected; // Disable input only when fully connected
 }
@@ -194,18 +213,22 @@ function setConnectedState(isConnected) {
 
 // Function to reset the UI to its initial disconnected state
 function resetUI() {
-    setConnectedState(false); // Set UI to disconnected state
-    setConnectingState(false); // Ensure connecting state is also reset
+    console.log("Resetting UI to disconnected state.");
+    setConnectedState(false); // Set UI to disconnected state visuals
+    setConnectingState(false); // Ensure connecting state visuals/disables are also reset
     currentChannel = null;
-    // Don't clear chat on disconnect, just reset buttons/input
     client = null; // Clear the client instance reference
+    disconnectBtn.textContent = 'Disconnect'; // Ensure button text is reset
+    // Optional: Clear chat on disconnect? Current behaviour preserves it.
+    // chatMessages.innerHTML = '';
 }
 
 // --- Event Listeners Setup ---
 connectBtn.addEventListener('click', connectToChannel);
 disconnectBtn.addEventListener('click', disconnectFromChannel);
 channelInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter' && !channelInput.disabled) { // Only connect if input isn't disabled
+    // Check if connectBtn is visible and enabled before allowing Enter key connection
+    if (e.key === 'Enter' && connectBtn.style.display !== 'none' && !connectBtn.disabled) {
         connectToChannel();
     }
 });
