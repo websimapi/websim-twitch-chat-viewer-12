@@ -1,0 +1,37 @@
+/__DELETE_ME__
+`````` index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitch Chat Viewer</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+        {
+          "imports": {
+            "tmi.js": "https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/es6/index.js"
+          }
+        }
+    </script>
+
+</head>
+<body>
+    <div id="app">
+        <h1>Twitch Chat Viewer</h1>
+        <div id="channel-input-container">
+            <label for="channel-name">Enter Twitch Channel Name:</label>
+            <input type="text" id="channel-name" placeholder="e.g., ninja">
+            <button id="connect-btn">Connect</button>
+            <button id="disconnect-btn" style="display: none;">Disconnect</button>
+        </div>
+        <div id="chat-container">
+            <ul id="chat-messages"></ul>
+        </div>
+    </div>
+    <script type="module" src="script.js"></script>
+</body>
+</html>
+
+/__DELETE_ME__
+

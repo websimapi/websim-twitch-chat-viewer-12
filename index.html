@@ -1,0 +1,32 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitch Chat Viewer</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+        {
+          "imports": {
+            "tmi.js": "https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/es6/index.js"
+          }
+        }
+    </script>
+
+</head>
+<body>
+    <div id="app">
+        <h1>Twitch Chat Viewer</h1>
+        <div id="channel-input-container">
+            <label for="channel-name">Enter Twitch Channel Name:</label>
+            <input type="text" id="channel-name" placeholder="e.g., ninja">
+            <button id="connect-btn">Connect</button>
+            <button id="disconnect-btn" style="display: none;">Disconnect</button>
+        </div>
+        <div id="chat-container">
+            <ul id="chat-messages"></ul>
+        </div>
+    </div>
+    <script type="module" src="script.js"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
